@@ -30,6 +30,7 @@ See `../backend/README.md` for starting the service.
 | `npm run typecheck` | TypeScript check without emit    |
 | `npm run build`     | Production build                 |
 | `npm run start`     | Serve the production build       |
+| `npm run e2e`       | Browser smoke test of the demo flow against a running server (see `e2e/smoke.js`) |
 
 ## Layout
 

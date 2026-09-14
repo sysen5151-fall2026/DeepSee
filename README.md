@@ -10,9 +10,17 @@ This repository holds the SYSEN 5151 (Fall 2026) course prototype: a clinician w
 
 ## Screenshots
 
-| Overview | Clinician sign-in | System information |
+Captured from the demo-mode prototype by the end-to-end smoke test.
+
+| Overview | Patient context | Recent reviews |
 | --- | --- | --- |
-| ![Overview](docs/screenshots/overview.png) | ![Sign in](docs/screenshots/login.png) | ![About](docs/screenshots/about.png) |
+| ![Overview](docs/screenshots/overview.png) | ![Patient context](docs/screenshots/analyze-context.png) | ![Recent reviews](docs/screenshots/cases.png) |
+
+| Case interpretation (ranked differential, attention overlay, evidence trail, clinician decision) |
+| --- |
+| ![Case interpretation](docs/screenshots/result-decision.png) |
+
+More: [sign-in](docs/screenshots/login.png), [imaging step](docs/screenshots/analyze-imaging.png), [review before analysis](docs/screenshots/analyze-review.png), [system information](docs/screenshots/about.png), [support](docs/screenshots/support.png), [register](docs/screenshots/register.png).
 
 ## Quick start (demo mode, no backend)
 
@@ -100,6 +108,17 @@ The current image model is the five-block CNN from the original project, trained
 - Server-side case records with audit trail, replacing browser-only history
 - DICOM ingestion and PACS integration
 - Clinical validation study design
+
+## Verification
+
+| Check | Command | Status |
+| --- | --- | --- |
+| Type check | `cd frontend && npm run typecheck` | Passes |
+| Production build | `cd frontend && npm run build` | Passes, 12 routes |
+| End-to-end smoke test (demo flow) | `cd frontend && npm run start` then `npm run e2e` | 21 checks pass |
+| Backend syntax | `python -m compileall backend/core` | Passes |
+
+The smoke test drives a real browser (installed Edge by default; see `frontend/e2e/smoke.js`) through sign-in, upload, patient context, analysis, decision capture, local history, reopening a case, and sign-out. CI runs the type check, build, and backend syntax check on every push.
 
 ## Design principles
 
