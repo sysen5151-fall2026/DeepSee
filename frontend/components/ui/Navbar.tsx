@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import classNames from 'classnames';
-import { Activity, ChevronDown, FlaskConical, LockKeyhole, LogOut, Menu, Plus, X } from 'lucide-react';
+import { ChevronDown, FlaskConical, LockKeyhole, LogOut, Menu, Plus, X } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
 import { isDemoMode } from '@/lib/config';
 
@@ -36,9 +36,8 @@ const Navbar = () => {
       <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2.5" aria-label="DeepSee home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0d766e] text-white shadow-sm">
-              <Activity className="h-5 w-5" strokeWidth={2.3} />
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/deepsee-mark.svg" alt="" className="h-9 w-9 rounded-xl shadow-sm" />
             <span className="leading-none">
               <span className="block text-[17px] font-extrabold tracking-[-0.02em] text-[#12333a]">DeepSee</span>
               <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.17em] text-[#789096]">Clinical AI</span>

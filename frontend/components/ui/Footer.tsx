@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { Activity, Github, LockKeyhole } from 'lucide-react';
+import { Github, LockKeyhole } from 'lucide-react';
 import { REPO_URL } from '@/lib/config';
 
 const Footer = () => (
   <footer className="border-t border-[#dbe7e3] bg-white">
     <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-7 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
       <div className="flex items-center gap-3 text-sm text-[#698087]">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#e2f0ed] text-[#0d766e]"><Activity className="h-4 w-4" /></span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/deepsee-mark.svg" alt="" className="h-7 w-7 rounded-lg" />
         <span>
           <strong className="text-[#294951]">DeepSee</strong> · Human-in-the-loop clinical decision support · SYSEN 5151 prototype
         </span>
