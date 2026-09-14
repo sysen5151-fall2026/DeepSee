@@ -1,0 +1,31 @@
+{
+  "name": "DeepSee Clinical Decision Support",
+  "short_name": "DeepSee",
+  "description": "On-premise, human-in-the-loop clinical decision support for chest X-ray review.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f8f7",
+  "theme_color": "#0d766e",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["healthcare", "medical", "productivity"],
+  "shortcuts": [
+    {
+      "name": "New clinical review",
+      "short_name": "New review",
+      "url": "/analyze",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Recent reviews",
+      "short_name": "Reviews",
+      "url": "/cases",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "icons": [
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ]
+}

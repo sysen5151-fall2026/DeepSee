@@ -1,0 +1,29 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+
+# Python / Django
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.sqlite3
+backend/core/media/
+backend/core/staticfiles/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,13 @@
+*.sqlite3
+*.pyc
+__pycache__/
+
+.env
+venv/
+.venv/
+.vscode/
+
+media/
+staticfiles/
+Pipfile
+Pipfile.lock
