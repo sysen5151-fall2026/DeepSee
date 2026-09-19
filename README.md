@@ -24,6 +24,37 @@
   <a href="#roadmap">Roadmap</a>
 </p>
 
+## Operational Concept
+
+<!-- ---------------------------------------------------------------------------
+     LAB MANUAL 1.4.2: this section must be the OpsCon narrative from the team's
+     Innoslate model, COPIED rather than paraphrased. Replace everything between
+     the markers below with the exact narrative text from the Innoslate Asset
+     Diagram for Universe context. Do not reword it here; if the narrative reads
+     badly, fix it in Innoslate and copy it again.
+     ------------------------------------------------------------------------ -->
+
+<!-- BEGIN OPSCON (copied from Innoslate) -->
+
+> **Not yet copied from the model.** Paste the OpsCon narrative from the Innoslate
+> Asset Diagram for Universe context here, verbatim, before submission. Nothing
+> drafted in this repository is a substitute for it — the model is the
+> specification, and a paraphrase breaks the traceability this increment exists
+> to establish.
+
+<!-- END OPSCON -->
+
+### External systems
+
+Clinician; chest X-ray image source; clinician workstation store; biomedical
+knowledge source (planned, not connected); public/hosted AI endpoints (excluded
+by design); institutional identity provider and EHR (not connected).
+
+What crosses the boundary with each one, in which direction and in what form, is
+in [docs/context.md](docs/context.md).
+
+## Prototype overview
+
 DeepSee puts a ranked, explainable differential beside the clinician at the moment of review. It runs inside the care setting's own network, keeps protected health information local, and leaves every decision with a person.
 
 This repository holds the SYSEN 5151 (Fall 2026) course prototype: a clinician workspace built with Next.js and a local inference service built with Django and TensorFlow. It extends the open-source [CDSS chest X-ray project](docs/ORIGINAL_CDSS_README.md) from Cairo University with the DeepSee clinical hierarchy, privacy signalling, decision capture, and local case history.
@@ -151,11 +182,29 @@ flowchart LR
 ## Repository layout
 
 ```
-frontend/   Next.js clinician workspace (see frontend/README.md)
-backend/    Django inference service and CNN model (see backend/README.md)
-docs/       Brand assets, screenshots, design notes, original project report, dataset README
-.github/    CI: frontend typecheck + build, backend syntax check
+README.md              OpsCon narrative (first section) and prototype overview
+SPEC.md                Stub; headings only until Chapter 3
+
+clinician_interface/   Boundary element: Clinician
+imaging_source/        Boundary element: chest X-ray image source
+workstation_store/     Boundary element: clinician workstation store
+knowledge_source/      Boundary element: biomedical knowledge source (not connected)
+
+frontend/              Next.js clinician workspace (see frontend/README.md)
+backend/               Django inference service and CNN model (see backend/README.md)
+docs/
+    context.md         External-system boundary inventory
+    environment.md     Toolchain record
+    prompt-log.md      AI-assisted work provenance
+    adr/0001-initial-toolchain.md
+    brand/, screenshots/, UI_DESIGN_NOTES.md, original project report, dataset README
+.github/               CI: frontend typecheck + build, backend syntax check
 ```
+
+The four boundary directories are named for elements in the Innoslate model
+rather than for the technology behind them, per Lab Manual §1.4.2. They contain
+documentation only; each one points at the code that implements that boundary
+today. See the mapping table at the end of [docs/context.md](docs/context.md).
 
 ## Model
 
@@ -173,6 +222,29 @@ Model confidence is a property of the classifier, not the probability that a pat
 | Backend syntax | `python -m compileall backend/core` | Passes |
 
 The smoke test drives a real browser (installed Edge by default; see `frontend/e2e/smoke.js`) through sign-in, upload, patient context, analysis, decision capture, local history, reopening a case, and sign-out. CI runs the type check, build, and backend syntax check on every push.
+
+## Model and product divergence
+
+The Innoslate model is the specification and the product follows it. Where the
+two currently differ, the difference is recorded here rather than resolved by
+quietly editing one to match the other.
+
+The runnable prototype implements a **narrower** diagnostic path than the DeepSee
+architecture describes. What runs today is chest X-ray analysis by a binary
+pneumonia classifier, refined by an in-product Bayesian table over vitals and
+symptoms. The broader architecture — ontology-linked evidence retrieval with
+source citations, and multi-finding classification — is named on the context
+diagram as planned and is listed under [Roadmap](#roadmap). It is not
+implemented, and the interface labels it *not connected* rather than fabricating
+citations.
+
+A second, deliberate divergence: §1.4.2 asks for one top-level directory per
+boundary element. The boundary directories exist and carry that naming, but the
+working code stays in `frontend/` and `backend/`, which are named for technology.
+Moving it would break CI, every documented command and every import, for no
+traceability that the mapping table in [docs/context.md](docs/context.md) does
+not already provide. Recorded as assumption 4 in
+[docs/prompt-log.md](docs/prompt-log.md).
 
 ## Roadmap
 
