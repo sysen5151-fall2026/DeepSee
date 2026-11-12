@@ -128,7 +128,7 @@ is claimed as validated.
 | ID | Model entity | Where in the repository | Status | Gap or next step |
 | --- | --- | --- | --- | --- |
 | SR1 | F.4 | `frontend/app/result/page.tsx` (ranked differential, evidence trail), `frontend/components/ui/HeatmapViewer.tsx`; `demo/` (supporting findings and points against for every item) | Partial | The prototype overlay is drawn in the browser from the confidence score, not from the model; a model-derived explanation is still needed |
-| SR2 | F.3 | `backend/core/imaging_service/views.py` (`upload_scan`) | Not started | No timed test; no 60 second limit in client or server |
+| SR2 | F.3 | `backend/core/imaging_service/clinical_analysis/` (F.3.3 checks 60 s), `views.py` (`upload_scan`), `frontend/utils/xrayAnalysisService.ts` (60 s client timeout) | Partial | `test_SR2_*` with an injected clock; timed run on the real model still needed |
 | SR3 | F.3 | `backend/core/imaging_service/model/` (`cnn-pneumonia-v1`, threshold 0.5) | Evaluation | Supported target findings not yet defined; no independent test set evaluation in the repository |
 | SR4 | F.3 | same as SR3 | Evaluation | Same dataset and threshold as SR3 |
 | SR5 | F.5 | `frontend/app/result/page.tsx` (clinician decision: accept and other options), `frontend/utils/caseHistory.ts`; `demo/` (mark for review, dismiss) | Partial | Decision is recorded but there is no finalization step and no check that the user is an authorized clinician |
@@ -139,7 +139,7 @@ is claimed as validated.
 | SR10 | Generate Operational Performance Report | none | Not started | No aggregate report function |
 | SR11 | System asset | `docs/adr/0001-initial-toolchain.md` (local model hosting), `docs/context.md` (no public AI endpoint), local inference in `backend/core/imaging_service/`; `demo/` runs entirely in the browser | Partial | Controlled egress test and network log review not yet done |
 | SR12 | F.0.1 | `backend/core/auth_service/` (JWT login), `IsAuthenticated` on `upload_scan`, `frontend/components/ProtectedRoute.tsx` | Partial | No roles or access-control matrix; open self registration (`auth/signup/`) conflicts with a hospital-approved matrix |
-| SR13 | F.0.4 | `frontend/app/analyze/page.tsx` (error shown when analysis fails) | Partial | Message asks to retry rather than directing the clinician to continue without DeepSee; no 60 second timeout |
+| SR13 | F.0.4 | `clinical_analysis/f3_3_evaluate_analysis_availability.py` (IO.12, HTTP 503), `frontend/app/analyze/page.tsx` (notice, no mock fallback) | Implemented | `test_SR13_*`, `test_CR3_3_*`; see docs/requirements-f3.md for the flow-down |
 | SR14 | Technical Maintenance Documentation | `README.md`, `backend/README.md`, `frontend/README.md`, `docs/environment.md` | Partial | Installation, configuration and dependencies covered; backup and recovery, update and rollback missing; not version matched |
 | SR15 | Patient Data Handling Specification | `docs/context.md` (what crosses the boundary) | Partial | No per category purpose, roles, retention and deletion |
 | SR16 | F.4 | `frontend/app/result/page.tsx` (responsibility notice on the result view and in the PDF report); `demo/` (safeguard box and footer) | Implemented | Inspect every result view against the validation criterion |

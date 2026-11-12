@@ -1,0 +1,333 @@
+openapi: 3.1.0
+info:
+  title: DeepSee API
+  version: "1.0.0"
+  description: |
+    Lab Manual Chapter 7 interface contract.
+
+    Public operation: POST /api/upload-scan, which performs F.3 Perform Clinical
+    Analysis end to end.
+
+    Internal operations (paths under /internal/f3/) describe the four F.3
+    internal flows from the second-level IDEF0 (IO.17, IO.18, IO.8, IO.9) as
+    operations, one per function. Today these are in-process Python calls in
+    backend/core/imaging_service/clinical_analysis/, not HTTP endpoints. They
+    are written as operations so the boundaries between P.3.1 to P.3.4 are
+    explicit and could be split into services without changing the data.
+    Each operation carries x-function-id and x-performed-by from the model.
+servers:
+  - url: http://localhost:8000
+    description: Local hospital deployment (SR11)
+
+tags:
+  - name: F.3 Perform Clinical Analysis
+  - name: F.3 internal flows
+
+paths:
+  /api/upload-scan:
+    post:
+      tags: [F.3 Perform Clinical Analysis]
+      operationId: performClinicalAnalysis
+      summary: F.3 Perform Clinical Analysis (IO.5 + I.3 to IO.8 + IO.9, or IO.12)
+      x-function-id: F.3
+      x-performed-by: P.3 Clinical Analysis Subsystem
+      x-requirements: [FR3, SR1, SR2, SR13]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/UploadScanForm" }
+      responses:
+        "201":
+          description: Available branch of F.3.3. IO.8 Clinical Analysis Result and IO.9 Clinical Explanation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadScanResult" }
+        "400":
+          description: Missing image or invalid patient context (F.2 should have caught this).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Not authenticated (F.0.1, SR12).
+        "503":
+          description: Unavailable branch of F.3.3. IO.12 Analysis Unavailable Notice (SR13).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnavailableResponse" }
+
+  /internal/f3/analyze-image:
+    post:
+      tags: [F.3 internal flows]
+      operationId: analyzeChestXrayImage
+      summary: F.3.1 Analyze Chest X-ray Image (IO.5 + I.3 to IO.17 and IO.18)
+      x-function-id: F.3.1
+      x-performed-by: P.3.1 Chest X-ray CNN
+      x-control: C.3
+      x-requirements: [CR3.1]
+      x-implemented-as: clinical_analysis.f3_1_analyze_chest_xray_image.analyze_chest_xray_image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmedInputs, analysisSubmission]
+              properties:
+                confirmedInputs: { $ref: "#/components/schemas/ConfirmedInputs" }
+                analysisSubmission: { $ref: "#/components/schemas/AnalysisSubmission" }
+      responses:
+        "200":
+          description: IO.17 Image Finding Scores and IO.18 Analysis Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imageFindingScores: { $ref: "#/components/schemas/ImageFindingScores" }
+                  analysisStatus: { $ref: "#/components/schemas/AnalysisStatus" }
+        "422":
+          description: Image not accepted under C.3 or classifier failure; failure recorded in IO.18.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysisStatus: { $ref: "#/components/schemas/AnalysisStatus" }
+
+  /internal/f3/refine-differential:
+    post:
+      tags: [F.3 internal flows]
+      operationId: refineAndRankDifferential
+      summary: F.3.2 Refine and Rank Differential (IO.5 + IO.17 to IO.8 and IO.18)
+      x-function-id: F.3.2
+      x-performed-by: P.3.2 Knowledge Layer
+      x-control: C.3
+      x-requirements: [CR3.2]
+      x-implemented-as: clinical_analysis.f3_2_refine_and_rank_differential.refine_and_rank_differential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmedInputs, imageFindingScores]
+              properties:
+                confirmedInputs: { $ref: "#/components/schemas/ConfirmedInputs" }
+                imageFindingScores: { $ref: "#/components/schemas/ImageFindingScores" }
+      responses:
+        "200":
+          description: IO.8 Clinical Analysis Result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClinicalAnalysisResult" }
+
+  /internal/f3/evaluate-availability:
+    post:
+      tags: [F.3 internal flows]
+      operationId: evaluateAnalysisAvailability
+      summary: F.3.3 Evaluate Analysis Availability (IO.18 to Available, or IO.12)
+      x-function-id: F.3.3
+      x-performed-by: P.3.3 Analysis Status Monitor
+      x-control: C.3
+      x-requirements: [CR3.3, SR13]
+      x-implemented-as: clinical_analysis.f3_3_evaluate_analysis_availability.evaluate_analysis_availability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnalysisStatus" }
+      responses:
+        "200":
+          description: OR decision outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AvailabilityDecision" }
+
+  /internal/f3/explain:
+    post:
+      tags: [F.3 internal flows]
+      operationId: generateClinicalExplanation
+      summary: F.3.4 Generate Clinical Explanation (IO.8 to IO.9)
+      x-function-id: F.3.4
+      x-performed-by: P.3.4 Explanation Generator
+      x-control: C.3
+      x-requirements: [CR3.4, SR1]
+      x-implemented-as: clinical_analysis.f3_4_generate_clinical_explanation.generate_clinical_explanation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClinicalAnalysisResult" }
+      responses:
+        "200":
+          description: IO.9 Clinical Explanation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClinicalExplanation" }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  schemas:
+    UploadScanForm:
+      description: Wire form of IO.5 Confirmed Inputs.
+      type: object
+      required: [image, birthdate]
+      properties:
+        image: { type: string, format: binary }
+        birthdate: { type: string, examples: ["1962-04-18"] }
+        gender: { type: string, default: female }
+        temperature: { type: number, default: 37.0 }
+        heartRate: { type: integer, default: 75 }
+        systolicBP: { type: integer, default: 120 }
+        diastolicBP: { type: integer, default: 80 }
+        hasCough: { type: boolean, default: false }
+        hasHeadaches: { type: boolean, default: false }
+        canSmellTaste: { type: boolean, default: true }
+        examId: { type: string }
+
+    ConfirmedInputs:
+      x-icom: IO.5
+      type: object
+      required: [imageWidth, imageHeight, age, gender, temperature, heartRate, systolicBp, diastolicBp, hasCough, hasHeadache, canSmell]
+      properties:
+        imageRef: { type: string, description: Reference to the stored image (bytes stay in process) }
+        imageWidth: { type: integer }
+        imageHeight: { type: integer }
+        age: { type: number }
+        gender: { type: string }
+        temperature: { type: number }
+        heartRate: { type: integer }
+        systolicBp: { type: integer }
+        diastolicBp: { type: integer }
+        hasCough: { type: boolean }
+        hasHeadache: { type: boolean }
+        canSmell: { type: boolean }
+        examId: { type: string }
+
+    AnalysisSubmission:
+      x-icom: I.3
+      type: object
+      required: [userId, submittedAt]
+      properties:
+        userId: { type: string }
+        submittedAt: { type: number, description: Monotonic seconds at image acceptance }
+
+    AnalysisCriteria:
+      x-icom: C.3
+      type: object
+      properties:
+        pneumoniaThreshold: { type: number, default: 0.5 }
+        timeoutSeconds: { type: number, default: 60 }
+        minImageSidePx: { type: integer, default: 64 }
+        scoreCap: { type: number, default: 0.95 }
+
+    ImageFindingScores:
+      x-icom: IO.17
+      type: object
+      required: [pneumoniaProbability, hasPneumonia, threshold, modelVersion]
+      properties:
+        pneumoniaProbability: { type: number, minimum: 0, maximum: 1 }
+        hasPneumonia: { type: boolean }
+        threshold: { type: number }
+        modelVersion: { type: string, examples: ["cnn-pneumonia-v1"] }
+
+    AnalysisStatus:
+      x-icom: IO.18
+      type: object
+      required: [startedAt, steps]
+      properties:
+        startedAt: { type: number }
+        finishedAt: { type: [number, "null"] }
+        failure: { type: [string, "null"] }
+        steps:
+          type: array
+          items:
+            type: array
+            prefixItems:
+              - { type: string, description: Function ID, examples: ["F.3.1"] }
+              - { type: string, enum: [done, failed, available, unavailable] }
+
+    Prediction:
+      type: object
+      required: [label, confidence]
+      properties:
+        label: { type: string, enum: [Pneumonia, Covid-19, Normal] }
+        confidence: { type: number, minimum: 0, maximum: 0.95 }
+
+    ClinicalAnalysisResult:
+      x-icom: IO.8
+      type: object
+      required: [predictions, topPrediction, severity, imageModel]
+      properties:
+        predictions: { type: array, items: { $ref: "#/components/schemas/Prediction" }, minItems: 3, maxItems: 3 }
+        topPrediction: { $ref: "#/components/schemas/Prediction" }
+        severity: { type: string, enum: [High, Moderate, Low] }
+        imageModel: { $ref: "#/components/schemas/ImageFindingScores" }
+        observed: { type: object, additionalProperties: { type: boolean } }
+
+    ClinicalExplanation:
+      x-icom: IO.9
+      type: object
+      required: [summary, image_finding, contributing_factors, caveat]
+      properties:
+        summary: { type: string }
+        image_finding: { type: string }
+        contributing_factors: { type: array, items: { type: string } }
+        caveat: { type: string }
+
+    AnalysisUnavailableNotice:
+      x-icom: IO.12
+      type: object
+      required: [message, reason, elapsedSeconds]
+      properties:
+        message:
+          type: string
+          const: No analysis result is available. Continue the established review without DeepSee assistance.
+        reason: { type: string }
+        elapsedSeconds: { type: number }
+
+    AvailabilityDecision:
+      type: object
+      required: [available, elapsedSeconds]
+      properties:
+        available: { type: boolean }
+        elapsedSeconds: { type: number }
+        notice: { $ref: "#/components/schemas/AnalysisUnavailableNotice" }
+
+    UploadScanResult:
+      type: object
+      required: [predictions, topPrediction, severity, imageModel, explanation, modelVersion]
+      properties:
+        Covid-19: { type: number, deprecated: true }
+        Pneumonia: { type: number, deprecated: true }
+        age: { type: integer }
+        imageModel:
+          type: object
+          properties:
+            label: { type: string }
+            confidence: { type: number }
+            threshold: { type: number }
+        topPrediction: { $ref: "#/components/schemas/Prediction" }
+        predictions: { type: array, items: { $ref: "#/components/schemas/Prediction" } }
+        severity: { type: string, enum: [High, Moderate, Low] }
+        explanation: { $ref: "#/components/schemas/ClinicalExplanation" }
+        analysisStatus: { $ref: "#/components/schemas/AnalysisStatus/properties/steps" }
+        modelVersion: { type: string }
+        processedAt: { type: string, format: date-time }
+
+    UnavailableResponse:
+      type: object
+      required: [error, analysisUnavailable]
+      properties:
+        error: { type: string }
+        analysisUnavailable: { $ref: "#/components/schemas/AnalysisUnavailableNotice" }
+        analysisStatus: { $ref: "#/components/schemas/AnalysisStatus/properties/steps" }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string }
