@@ -1,3 +1,6 @@
+import io
+import time
+from dataclasses import asdict
 from datetime import datetime, timezone
 
 from dateutil.relativedelta import relativedelta
@@ -8,8 +11,37 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from .clinical_analysis import (
+    AnalysisCriteria,
+    AnalysisSubmission,
+    ConfirmedInputs,
+    perform_clinical_analysis,
+)
 from .knowledge_base import calculate
 from .model.model_predict import MODEL_VERSION, PNEUMONIA_THRESHOLD, predict_pneumonia
+
+# C.3 Analysis Acceptance and Timeout Criteria (see SPEC.md SR2, SR13).
+ANALYSIS_CRITERIA = AnalysisCriteria(pneumonia_threshold=PNEUMONIA_THRESHOLD, timeout_seconds=60.0)
+
+
+class KerasChestXrayClassifier:
+    """Adapter that lets the Keras CNN act as mechanism P.3.1 for F.3.1."""
+
+    model_version = MODEL_VERSION
+
+    def __call__(self, image_bytes: bytes) -> float:
+        _, probability = predict_pneumonia(io.BytesIO(image_bytes))
+        return probability
+
+
+def _image_size(image_bytes: bytes) -> tuple[int, int]:
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            return img.size
+    except Exception:
+        return (0, 0)
 
 
 def _parse_birthdate(value: str) -> datetime:
@@ -23,14 +55,6 @@ def _as_bool(value, default: bool) -> bool:
     if value is None:
         return default
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _severity(probability: float) -> str:
-    if probability >= 0.7:
-        return "High"
-    if probability >= 0.4:
-        return "Moderate"
-    return "Low"
 
 
 @api_view(["POST"])
@@ -73,42 +97,76 @@ def upload_scan(request):
     except (TypeError, ValueError) as exc:
         return Response({"error": f"Invalid parameter value: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        has_pneumonia, pneumonia_probability = predict_pneumonia(request.FILES["image"])
-    except Exception as exc:  # model or image failure
-        return Response({"error": f"Image analysis failed: {exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    posteriors = calculate(has_pneumonia=has_pneumonia, **vitals)
-
-    covid = float(posteriors["Covid-19"])
-    pneumonia = float(posteriors["Pneumonia"])
-    normal = round(max(0.0, 1.0 - max(covid, pneumonia)), 2)
-
-    predictions = sorted(
-        [
-            {"label": "Pneumonia", "confidence": pneumonia},
-            {"label": "Covid-19", "confidence": covid},
-            {"label": "Normal", "confidence": normal},
-        ],
-        key=lambda item: item["confidence"],
-        reverse=True,
+    # IO.5 Confirmed Inputs and I.3 Analysis submission for F.3 Perform Clinical Analysis.
+    submitted_at = time.monotonic()
+    image_bytes = request.FILES["image"].read()
+    width, height = _image_size(image_bytes)
+    confirmed_inputs = ConfirmedInputs(
+        image_bytes=image_bytes,
+        image_width=width,
+        image_height=height,
+        age=vitals["age"],
+        gender=vitals["gender"],
+        temperature=vitals["temperature"],
+        heart_rate=vitals["heart_rate"],
+        systolic_bp=vitals["systolic_pressure"],
+        diastolic_bp=vitals["diastolic_pressure"],
+        has_cough=vitals["has_cough"],
+        has_headache=vitals["has_headache"],
+        can_smell=vitals["can_smell"],
+        exam_id=str(request.data.get("examId", "")),
     )
+    submission = AnalysisSubmission(user_id=str(request.user.pk), submitted_at=submitted_at)
+
+    outcome = perform_clinical_analysis(
+        confirmed_inputs,
+        submission,
+        criteria=ANALYSIS_CRITERIA,
+        classifier=KerasChestXrayClassifier(),
+        knowledge_layer=calculate,
+    )
+
+    # F.3.3 Unavailable branch: IO.12 Analysis Unavailable Notice, no result shown (SR13).
+    if not outcome.decision.available:
+        notice = outcome.decision.notice
+        return Response(
+            {
+                "error": notice.message,
+                "analysisUnavailable": {
+                    "message": notice.message,
+                    "reason": notice.reason,
+                    "elapsedSeconds": round(notice.elapsed_seconds, 2),
+                },
+                "analysisStatus": outcome.status.steps,
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # F.3.3 Available branch: IO.8 Clinical Analysis Result and IO.9 Clinical Explanation.
+    result = outcome.result
+    scores = result.image_model
+    predictions = [{"label": p.label, "confidence": p.confidence} for p in result.predictions]
+    by_label = {p.label: p.confidence for p in result.predictions}
 
     payload = {
         # Legacy flat keys kept for older clients.
-        "Covid-19": covid,
-        "Pneumonia": pneumonia,
+        "Covid-19": by_label["Covid-19"],
+        "Pneumonia": by_label["Pneumonia"],
         "age": age,
         # Structured result consumed by the DeepSee workspace.
         "imageModel": {
-            "label": "Pneumonia" if has_pneumonia else "Normal",
-            "confidence": round(pneumonia_probability if has_pneumonia else 1 - pneumonia_probability, 4),
-            "threshold": PNEUMONIA_THRESHOLD,
+            "label": "Pneumonia" if scores.has_pneumonia else "Normal",
+            "confidence": round(
+                scores.pneumonia_probability if scores.has_pneumonia else 1 - scores.pneumonia_probability, 4
+            ),
+            "threshold": scores.threshold,
         },
         "topPrediction": predictions[0],
         "predictions": predictions,
-        "severity": _severity(max(covid, pneumonia)),
-        "modelVersion": MODEL_VERSION,
+        "severity": result.severity,
+        "explanation": asdict(outcome.explanation),
+        "analysisStatus": outcome.status.steps,
+        "modelVersion": scores.model_version,
         "processedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     return Response(payload, status=status.HTTP_201_CREATED)

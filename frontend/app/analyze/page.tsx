@@ -77,7 +77,7 @@ export default function AnalyzePage() {
       router.push('/result');
     } catch (err) {
       console.error('Analysis error:', err);
-      setError('The local analysis could not be completed. Check the model service and try again.');
+      setError('No analysis result is available. Continue the established review without DeepSee assistance.');
       setIsAnalyzing(false);
     }
   };
