@@ -223,6 +223,7 @@ docs/
     traceability.md    Function to module to requirement to test
     requirements-f3.md Requirement flow down for F.3
     route-table.md     Product entry points mapped to use case steps
+    demo-script.md     Five minute demonstration script for the primary use case
     context.md         External-system boundary inventory (September context, see divergence)
     ch10/              Modeling and simulation data: Innoslate results, replica script, measured timings
     environment.md     Toolchain record
