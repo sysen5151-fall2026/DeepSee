@@ -52,6 +52,10 @@ export async function analyzeXray(image?: File, vitals?: PatientVitals): Promise
         body: formData,
         formData: true,
         requiresAuth: true,
+        // One attempt with the full analysis window. The api client defaults (10 s, two
+        // retries) would abort a slow first inference and resubmit the case.
+        timeout: ANALYSIS_TIMEOUT_MS + 5_000,
+        retries: 0,
       }),
       timeout,
     ]);
