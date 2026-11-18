@@ -26,38 +26,61 @@
 
 ## Operational Concept
 
-<!-- ---------------------------------------------------------------------------
-     LAB MANUAL 1.4.2: this section must be the OpsCon narrative from the team's
-     Innoslate model, COPIED rather than paraphrased. Replace everything between
-     the markers below with the exact narrative text from the Innoslate Asset
-     Diagram for Universe context. Do not reword it here; if the narrative reads
-     badly, fix it in Innoslate and copy it again.
-     ------------------------------------------------------------------------ -->
+Source: the team's Innoslate model (DeepSee project), [Asset Diagram for the Universe context](https://cloud.innoslate.com/cornell/p/758/diagrams/asset/199263),
+retrieved 18 Nov 2026. The model defines the operational concept through this diagram and the
+descriptions of its elements and interfaces. Those descriptions are copied below without
+rewording. The model holds no separate narrative paragraph.
 
-<!-- BEGIN OPSCON (copied from Innoslate) -->
+> **X.C.1 DeepSee Operational Environment.** The operational environment (context) in which
+> DeepSee is used: the people, data sources, network and workstation resources that interact
+> with DeepSee but are outside its boundary.
 
-> **Not yet copied from the model.** Paste the OpsCon narrative from the Innoslate
-> Asset Diagram for Universe context here, verbatim, before submission. Nothing
-> drafted in this repository is a substitute for it — the model is the
-> specification, and a paraphrase breaks the traceability this increment exists
-> to establish.
+```mermaid
+flowchart LR
+  CDS["X.C.1.3<br/>Clinical Data Source"]:::partial
+  CL["X.C.1.1<br/>Clinician"]:::working
+  NET["X.C.1.2<br/>Hospital IT / Local Network"]:::partial
+  DEV["X.C.1.5<br/>Development and Maintenance Team"]:::partial
+  PRIV["X.C.1.6<br/>Authorized Privacy and Compliance Reviewers"]:::notbuilt
+  LEAD["X.C.1.7<br/>Authorized Hospital Leadership"]:::notbuilt
+  C0["C.0<br/>DeepSee Clinical Decision Support System"]:::working
+  CDS -- "Clinical Data Input" --> C0
+  CDS -- "Case Image and Context Retrieval" --- CL
+  CL -- "Clinical Review Interaction" --- C0
+  NET -- "On-Premise Network Interface" --- C0
+  DEV -- "Model and Rule Updates" --- C0
+  C0 -- "Authorized Review and Audit Access" --> PRIV
+  C0 -- "Operational Performance Reporting" --> LEAD
+  classDef working fill:#7ED321,stroke:#3d6b0f,color:#10240a
+  classDef partial fill:#F8E71C,stroke:#8a7f00,color:#2b2700
+  classDef notbuilt fill:#F28B82,stroke:#9c3b33,color:#3a0d09
+```
 
-<!-- END OPSCON -->
+Green is working, yellow is partial, red is not yet built. The same colors are set on the
+diagram in Innoslate.
 
-### External systems
+### OpsCon to as built
 
-Clinician; chest X-ray image source; clinician workstation store; biomedical
-knowledge source (planned, not connected); public/hosted AI endpoints (excluded
-by design); institutional identity provider and EHR (not connected).
+Status on 18 Nov 2026. Interface descriptions in the second column are the model's own text.
 
-What crosses the boundary with each one, in which direction and in what form, is
-in [docs/context.md](docs/context.md).
+| OpsCon element | Interface in the model | Where it lives in this repository | Status |
+| --- | --- | --- | --- |
+| C.0 DeepSee Clinical Decision Support System | The system itself | `frontend/` (clinician workspace), `backend/core/` (local analysis service, Chest X-ray CNN, knowledge layer) | **Working.** The primary use case UC.1 is implemented end to end. P.4 to P.6 are partial: the overlay is drawn in the browser, the decision has no authorization check, and review records stay in the browser. |
+| X.C.1.1 Clinician | **Clinical Review Interaction.** "In: credentials, case selection, confirmed inputs, review decision and note. Out: case summary, pneumonia finding (suspected or not suspected) with model score and evidence, context indicators labelled as not image findings, analysis unavailable notice, save confirmation, exported case PDF." | `frontend/app/`, `frontend/components/ui/`, `backend/core/auth_service/` | **Working** |
+| X.C.1.3 Clinical Data Source | **Clinical Data Input.** "One frontal chest radiograph (PNG or JPEG) and the available patient context, supplied for the selected case. Nothing is written back." **Case Image and Context Retrieval.** "The clinician obtains the frontal chest radiograph and available patient context from the clinical data source before supplying them to DeepSee." | `frontend/components/ui/ImageUploader.tsx`, samples in `frontend/assets/x-ray-images/` | **Partial.** The clinician selects an image file on the workstation and types the patient context. No PACS or EHR connection. |
+| X.C.1.2 Hospital IT / Local Network | **On-Premise Network Interface.** "Represents the hospital-managed local network infrastructure supporting the DeepSee deployment. Clinical data exchanges are modeled separately through the clinical data and clinician interaction conduits. Case data remains within the hospital network." | `docs/adr/0001-initial-toolchain.md`, `frontend/.env.example`, `backend/.env.example` | **Partial.** Frontend and backend run on one local machine and no public AI endpoint is called. No hospital network deployment and no egress test. |
+| X.C.1.5 Development and Maintenance Team | **Model and Rule Updates.** "Versioned model files, knowledge rules and software releases delivered to the local deployment; verification evidence returned." | `.github/workflows/`, `tests/`, `backend/core/imaging_service/model/`, `backend/core/imaging_service/knowledge_base.py` | **Partial.** CI and 25 requirement tests run on every push; the model is versioned as `cnn-pneumonia-v1`. No update, rollback or revalidation procedure. |
+| X.C.1.6 Authorized Privacy and Compliance Reviewers | **Authorized Review and Audit Access.** "Provides O.3 Review / Audit Records from C.0 DeepSee to authorized privacy and compliance personnel under applicable access and data protection policies." | None. Saved reviews stay in the clinician's browser (`frontend/utils/caseHistory.ts`). | **Not yet built** |
+| X.C.1.7 Authorized Hospital Leadership | **Operational Performance Reporting.** "Provides O.4 Performance Reports from C.0 DeepSee to authorized hospital leadership for operational review." | None | **Not yet built** |
+
+Requirement level status is in [SPEC.md](SPEC.md). Function to module to test traceability is in
+[docs/traceability.md](docs/traceability.md).
 
 ## Prototype overview
 
 DeepSee puts a ranked, explainable differential beside the clinician at the moment of review. It runs inside the care setting's own network, keeps protected health information local, and leaves every decision with a person.
 
-This repository holds the SYSEN 5151 (Fall 2026) course prototype: a clinician workspace built with Next.js and a local inference service built with Django and TensorFlow. It extends the open-source [CDSS chest X-ray project](docs/ORIGINAL_CDSS_README.md) from Cairo University with the DeepSee clinical hierarchy, privacy signalling, decision capture, and local case history.
+This repository holds the SYSEN 5151 (Fall 2026) course prototype: a clinician workspace built with Next.js and a local inference service built with Django and TensorFlow. It builds on an open-source [chest X-ray CDSS project](docs/ORIGINAL_CDSS_README.md), credited under [License](#license), and adds the DeepSee clinical hierarchy, privacy signalling, decision capture, and local case history.
 
 > **Disclaimer.** DeepSee is an educational prototype. It is not a medical device and has not been clinically validated. All outputs must be reviewed by qualified healthcare professionals alongside clinical findings and other diagnostic tests.
 
@@ -182,23 +205,31 @@ flowchart LR
 ## Repository layout
 
 ```
-README.md              OpsCon narrative (first section) and prototype overview
-SPEC.md                Stub; headings only until Chapter 3
-
-clinician_interface/   Boundary element: Clinician
-imaging_source/        Boundary element: chest X-ray image source
-workstation_store/     Boundary element: clinician workstation store
-knowledge_source/      Boundary element: biomedical knowledge source (not connected)
+README.md              Operational concept from the model, as built status, prototype overview
+SPEC.md                Stakeholder requirements SR1 to SR18 with status, data and response contracts
 
 frontend/              Next.js clinician workspace (see frontend/README.md)
-backend/               Django inference service and CNN model (see backend/README.md)
+backend/               Django analysis service and CNN model (see backend/README.md)
+  core/imaging_service/clinical_analysis/   F.3 Perform Clinical Analysis, one module per function F.3.1 to F.3.4
+tests/                 Requirement tests, named by requirement ID (pytest)
+contracts/api-v1.yaml  Interface contract (OpenAPI) for F.3 and its internal flows
+
+clinician_interface/   Boundary anchor: Clinician
+imaging_source/        Boundary anchor: chest X-ray image source
+workstation_store/     Boundary anchor: clinician workstation store (retired in the model)
+knowledge_source/      Boundary anchor: biomedical knowledge source (not connected)
+
 docs/
-    context.md         External-system boundary inventory
+    traceability.md    Function to module to requirement to test
+    requirements-f3.md Requirement flow down for F.3
+    route-table.md     Product entry points mapped to use case steps
+    context.md         External-system boundary inventory (September context, see divergence)
+    ch10/              Modeling and simulation data: Innoslate results, replica script, measured timings
     environment.md     Toolchain record
     prompt-log.md      AI-assisted work provenance
     adr/0001-initial-toolchain.md
     brand/, screenshots/, UI_DESIGN_NOTES.md, original project report, dataset README
-.github/               CI: frontend typecheck + build, backend syntax check
+.github/workflows/     ci.yml (frontend typecheck and build, backend syntax check), tests.yml (requirement tests)
 ```
 
 The four boundary directories are named for elements in the Innoslate model
@@ -220,8 +251,9 @@ Model confidence is a property of the classifier, not the probability that a pat
 | Production build | `cd frontend && npm run build` | Passes, 12 routes |
 | End-to-end smoke test (demo flow) | `cd frontend && npm run start` then `npm run e2e` | 21 checks pass |
 | Backend syntax | `python -m compileall backend/core` | Passes |
+| Requirement tests (F.3) | `python -m pytest tests -v` | 25 tests pass |
 
-The smoke test drives a real browser (installed Edge by default; see `frontend/e2e/smoke.js`) through sign-in, upload, patient context, analysis, decision capture, local history, reopening a case, and sign-out. CI runs the type check, build, and backend syntax check on every push.
+The smoke test drives a real browser (installed Edge by default; see `frontend/e2e/smoke.js`) through sign-in, upload, patient context, analysis, decision capture, local history, reopening a case, and sign-out. CI runs the type check, build, backend syntax check, and requirement tests on every push.
 
 ## Model and product divergence
 
@@ -232,8 +264,8 @@ quietly editing one to match the other.
 The runnable prototype implements a **narrower** diagnostic path than the DeepSee
 architecture describes. What runs today is chest X-ray analysis by a binary
 pneumonia classifier, refined by an in-product Bayesian table over vitals and
-symptoms. The broader architecture — ontology-linked evidence retrieval with
-source citations, and multi-finding classification — is named on the context
+symptoms. The broader architecture (ontology-linked evidence retrieval with
+source citations, and multi-finding classification) is named on the context
 diagram as planned and is listed under [Roadmap](#roadmap). It is not
 implemented, and the interface labels it *not connected* rather than fabricating
 citations.
@@ -246,12 +278,22 @@ traceability that the mapping table in [docs/context.md](docs/context.md) does
 not already provide. Recorded as assumption 4 in
 [docs/prompt-log.md](docs/prompt-log.md).
 
+A third divergence, found on 18 Nov 2026: the context in the model was revised after this
+repository's boundary documents were written. The model retired the clinician workstation store
+as an external element (saved reviews are now inside the system) and added three elements: the
+development and maintenance team, privacy and compliance reviewers, and hospital leadership.
+[docs/context.md](docs/context.md) and the four boundary directories still describe the
+September context. The table under [Operational Concept](#operational-concept) follows the
+current model; the older documents are due for update in the integration work.
+
 ## Roadmap
 
 - Ontology-linked evidence retrieval with source citations in the result payload
 - Multi-finding classifier (NIH ChestX-ray14) with Grad-CAM attention maps from the model itself
 - Server-side case records with audit trail, replacing browser-only history
 - DICOM ingestion and PACS integration
+- Audit records and reviewer access for privacy and compliance staff (SR18)
+- Operational performance report for hospital leadership (SR10)
 - Clinical validation study design
 
 ## Brand
