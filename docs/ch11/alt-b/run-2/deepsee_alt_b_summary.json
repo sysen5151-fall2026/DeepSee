@@ -1,0 +1,23 @@
+{
+  "alternative": "B — Shared Inference Prototype",
+  "topology": "Single cloud Linux host; separate frontend and inference processes and HTTP origins over loopback",
+  "browser_version": "153.0.8010.0",
+  "timing_boundary": "image accepted/preview visible -> Ranked differential displayed",
+  "warmups": 3,
+  "measured_runs": 30,
+  "successful_runs": 30,
+  "completion_rate_percent": 100,
+  "p95_acceptance_to_display_ms_nearest_rank": 1225.959,
+  "p95_acceptance_to_display_seconds": 1.226,
+  "model": "cnn-pneumonia-v1",
+  "shared_api_url": "http://127.0.0.2:8000",
+  "frontend_url": "http://localhost:3000",
+  "test_images": [
+    "00000001_001.png",
+    "00000001_002.png",
+    "00000002_000.png",
+    "00000003_000.png"
+  ],
+  "patient_context": "fixed synthetic context; sequential single-request trials",
+  "note": "Course-project prototype spike. Do not use real patient data."
+}
