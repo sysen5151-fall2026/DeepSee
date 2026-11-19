@@ -82,6 +82,11 @@ def refine_and_rank_differential(
         key=lambda p: p.confidence,
         reverse=True,
     )
+    leading, runner_up = ranked[:2]
+    tied = leading.confidence == runner_up.confidence
+    at_score_cap = (
+        leading.label != "Normal" and leading.confidence == criteria.score_cap
+    )
     status.record(FUNCTION_ID, "done")
     return ClinicalAnalysisResult(
         predictions=tuple(ranked),
@@ -89,4 +94,5 @@ def refine_and_rank_differential(
         severity=severity_for(max(covid, pneumonia)),
         image_model=image_finding_scores,
         observed=observed_findings(c),
+        indeterminate=tied or at_score_cap,
     )
