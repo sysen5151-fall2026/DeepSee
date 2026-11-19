@@ -55,6 +55,8 @@ const decisionOptions: { status: DecisionStatus; label: string; hint: string; ic
   { status: 'indeterminate', label: 'Indeterminate', hint: 'Needs further testing or review', icon: HelpCircle },
 ];
 
+const INDETERMINATE_SUMMARY = 'Indeterminate analysis result. Review the image and clinical context.';
+
 export default function ResultPage() {
   const [result, setResult] = useState<Record<string, any> | null>(null);
   const [originalImageUrl, setOriginalImageUrl] = useState('');
@@ -104,12 +106,13 @@ export default function ResultPage() {
     }
   }, [router]);
 
+  const indeterminate = result?.indeterminate === true;
   const predictions = useMemo(() => extractPredictions(result), [result]);
   const topPrediction: Prediction = predictions[0] || { label: 'Indeterminate', confidence: 0 };
-  const highRiskCondition = predictions.find(
+  const highRiskCondition = !indeterminate && predictions.find(
     (prediction) => ['covid-19', 'pneumonia'].includes(prediction.label.toLowerCase()) && prediction.confidence >= HIGH_RISK_THRESHOLD
   );
-
+  
   // Persist the case to local history once we have everything needed to reopen it.
   useEffect(() => {
     if (!result || !caseId || !originalImageUrl || historyState !== 'pending') return;
@@ -121,8 +124,8 @@ export default function ResultPage() {
         const ok = saveCase({
           id: caseId,
           createdAt: new Date().toISOString(),
-          topLabel: topPrediction.label,
-          topConfidence: topPrediction.confidence,
+          topLabel: indeterminate ? 'Indeterminate' : topPrediction.label,
+          topConfidence: indeterminate ? null : topPrediction.confidence,
           predictions,
           vitals: patientVitals,
           thumbnail: thumbnail || '/placeholder-xray.png',
@@ -168,15 +171,19 @@ export default function ResultPage() {
 
       doc.setFontSize(11);
       doc.setTextColor(100, 125, 131);
-      doc.text('Ranked differential (model confidence)', 110, 48);
-      let y = 59;
-      predictions.slice(0, 5).forEach((prediction, index) => {
-        doc.setFontSize(index === 0 ? 14 : 11);
-        doc.setTextColor(index === 0 ? 13 : 70, index === 0 ? 118 : 92, index === 0 ? 110 : 99);
-        doc.text(`${index + 1}. ${prediction.label} — ${Math.round(prediction.confidence * 100)}%`, 110, y);
-        y += 11;
-      });
-
+      if (indeterminate) {
+        doc.text('Analysis result: Indeterminate', 110, 48);
+      } else {
+        doc.text('Ranked differential (model confidence)', 110, 48);
+        let y = 59;
+        predictions.slice(0, 5).forEach((prediction, index) => {
+          doc.setFontSize(index === 0 ? 14 : 11);
+          doc.setTextColor(index === 0 ? 13 : 70, index === 0 ? 118 : 92, index === 0 ? 110 : 99);
+          doc.text(`${index + 1}. ${prediction.label} — ${Math.round(prediction.confidence * 100)}%`, 110, y);
+          y += 11;
+        });
+      }
+      
       doc.setFontSize(14);
       doc.setTextColor(21, 56, 63);
       doc.text('Clinical context', 20, 138);
@@ -190,7 +197,9 @@ export default function ResultPage() {
       doc.text('Model note', 20, 166);
       doc.setFontSize(10.5);
       doc.setTextColor(84, 108, 114);
-      const summary = result.diagnosisWithVitals || `Top model suggestion: ${topPrediction.label}. Correlate with patient presentation and clinician interpretation.`;
+      const summary = indeterminate ? INDETERMINATE_SUMMARY : (
+        result.diagnosisWithVitals || `Top model suggestion: ${topPrediction.label}. Correlate with patient presentation and clinician interpretation.`
+      );
       doc.text(doc.splitTextToSize(summary, 168), 20, 174);
 
       doc.setFontSize(14);
@@ -214,7 +223,7 @@ export default function ResultPage() {
       setIsDownloading(false);
     }
   };
-
+  
   if (isLoading) {
     return (
       <ProtectedRoute>
@@ -230,8 +239,13 @@ export default function ResultPage() {
 
   if (!result) return null;
 
-  const isNormal = isNormalLabel(topPrediction.label);
-  const status = isNormal ? 'No major abnormality suggested' : `${topPrediction.label} is the leading model suggestion`;
+  const isNormal = !indeterminate && isNormalLabel(topPrediction.label);
+  const status = indeterminate ? 'Indeterminate analysis result' : (
+    isNormal ? 'No major abnormality suggested' : `${topPrediction.label} is the leading model suggestion`
+  );
+  const availableDecisions = indeterminate
+    ? decisionOptions.filter((option) => option.status === 'indeterminate')
+    : decisionOptions;
 
   return (
     <ProtectedRoute>
@@ -255,7 +269,7 @@ export default function ResultPage() {
           </div>
         </div>
       </div>
-
+      
       <div id="report-container" className="mx-auto max-w-[1440px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
         {highRiskCondition && (
           <div className="mb-5 flex items-start gap-3 rounded-2xl border border-[#efd0ad] bg-[#fff8ee] px-4 py-3.5">
@@ -277,35 +291,48 @@ export default function ResultPage() {
                 <div>
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#87999d]">Clinical summary</p>
                   <h2 className="mt-1 text-2xl font-extrabold tracking-[-0.035em] text-[#23464d]">{status}</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6d8489]">{result.diagnosisWithVitals || 'Use the ranked differential as a prompt for clinical review. Model probability is not equivalent to a confirmed diagnosis.'}</p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6d8489]">{indeterminate ? INDETERMINATE_SUMMARY : (result.diagnosisWithVitals || 'Use the ranked differential as a prompt for clinical review. Model probability is not equivalent to a confirmed diagnosis.')}</p>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-px bg-[#e1ebe8] sm:grid-cols-4 lg:grid-cols-2">
-              <SummaryMetric label="Top confidence" value={`${Math.round(topPrediction.confidence * 100)}%`} detail={topPrediction.label} />
-              <SummaryMetric label="Differentials" value={`${predictions.length}`} detail="ranked suggestions" />
+              {indeterminate ? (
+                <SummaryMetric label="Analysis status" value="Indeterminate" detail="Clinician review needed" />
+              ) : (
+                <>
+                  <SummaryMetric label="Top confidence" value={`${Math.round(topPrediction.confidence * 100)}%`} detail={topPrediction.label} />
+                  <SummaryMetric label="Differentials" value={`${predictions.length}`} detail="ranked suggestions" />
+                </>
+              )}
               <SummaryMetric label="Processing" value="Local" detail={isDemoMode() ? 'mock model, no network' : 'no cloud AI call'} />
               <SummaryMetric label="Decision" value={decision ? decision.status.charAt(0).toUpperCase() + decision.status.slice(1) : 'Pending'} detail="clinician controlled" />
             </div>
           </div>
         </section>
-
+        
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.04fr)_minmax(380px,0.96fr)]">
           <div className="space-y-6">
             <section className="clinical-card overflow-hidden">
-              <SectionHeader icon={ScanLine} title="Imaging review" eyebrow="Visual evidence" trailing="Overlay can be toggled" />
+              <SectionHeader icon={ScanLine} title="Imaging review" eyebrow="Visual evidence" trailing={indeterminate ? undefined : "Overlay can be toggled"} />
               <div className="p-4 sm:p-5">
                 <div id="xray-image" className="overflow-hidden rounded-2xl bg-[#0c2227] p-2">
-                  <HeatmapViewer originalImageUrl={originalImageUrl} predictionResult={result} className="aspect-square w-full rounded-xl bg-[#07191d]" />
+                  {indeterminate ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={originalImageUrl} alt="Chest X-ray under review" className="aspect-square w-full rounded-xl bg-[#07191d] object-contain" />
+                  ) : (
+                    <HeatmapViewer originalImageUrl={originalImageUrl} predictionResult={result} className="aspect-square w-full rounded-xl bg-[#07191d]" />
+                  )}
                 </div>
-                <div className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-[#7f9297]"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> The overlay is an interpretability aid generated from model output. It is not a localisation or diagnostic result.</div>
+                {!indeterminate && (
+                  <div className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-[#7f9297]"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> The overlay is an interpretability aid generated from model output. It is not a localisation or diagnostic result.</div>
+                )}
               </div>
             </section>
 
             <section className="clinical-card overflow-hidden">
               <SectionHeader icon={BookOpenCheck} title="Evidence trail" eyebrow="Explainability" trailing="Prototype layer" />
               <div className="divide-y divide-[#e5eeeb]">
-                <EvidenceRow icon={ScanLine} title="Imaging model output" body={describeImageModel(result, topPrediction)} tag="Model" />
+                <EvidenceRow icon={ScanLine} title="Imaging model output" body={indeterminate ? (result.explanation?.image_finding || INDETERMINATE_SUMMARY) : describeImageModel(result, topPrediction)} tag="Model" />
                 <EvidenceRow icon={Stethoscope} title="Patient context" body={patientVitals ? summarizeVitals(patientVitals) : 'Patient vitals were included in the submitted case context.'} tag="Clinical input" />
                 <EvidenceRow icon={Sparkles} title="Rule-based refinement" body="Vitals and symptoms update prior probabilities for pneumonia and COVID-19 through explicit Bayesian likelihoods (fever, cough, headache, loss of smell, heart rate, blood pressure, age, sex)." tag="Knowledge base" />
                 <EvidenceRow icon={FileText} title="Biomedical references" body="The product architecture includes an ontology-linked evidence retrieval layer. This prototype does not yet return source citations in its result payload." tag="Not connected" muted />
@@ -315,9 +342,11 @@ export default function ResultPage() {
 
           <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
             <section className="clinical-card overflow-hidden">
-              <SectionHeader icon={Sparkles} title="Ranked differential" eyebrow="Decision support" trailing={`${predictions.length} possibilities`} />
+              <SectionHeader icon={Sparkles} title="Ranked differential" eyebrow="Decision support" trailing={indeterminate ? undefined : `${predictions.length} possibilities`} />
               <div className="p-5 sm:p-6">
-                {predictions.length ? (
+                {indeterminate ? (
+                  <p className="text-sm text-[#71878c]">Ranking withheld because the result is indeterminate.</p>
+                ) : predictions.length ? (
                   <div className="space-y-4">
                     {predictions.slice(0, 6).map((prediction, index) => (
                       <div key={`${prediction.label}-${index}`}>
@@ -340,10 +369,12 @@ export default function ResultPage() {
                 ) : (
                   <p className="text-sm text-[#71878c]">No ranked predictions were returned.</p>
                 )}
-                <div className="mt-5 rounded-xl border border-[#dbe7e3] bg-[#f8fbfa] p-3.5 text-[11px] leading-5 text-[#72888d]">Confidence scores indicate model certainty within this prototype and should not be interpreted as disease prevalence or a confirmed probability of diagnosis.</div>
+                {!indeterminate && (
+                  <div className="mt-5 rounded-xl border border-[#dbe7e3] bg-[#f8fbfa] p-3.5 text-[11px] leading-5 text-[#72888d]">Confidence scores indicate model certainty within this prototype and should not be interpreted as disease prevalence or a confirmed probability of diagnosis.</div>
+                )}
               </div>
             </section>
-
+            
             <section className="clinical-card overflow-hidden">
               <SectionHeader icon={ClipboardCheck} title="Clinician decision" eyebrow="Human in the loop" trailing={historyState === 'saved' ? 'Saved locally' : historyState === 'unavailable' ? 'Not saved' : 'Saving…'} />
               <div className="p-5 sm:p-6">
@@ -353,7 +384,7 @@ export default function ResultPage() {
                       {decision.status === 'accepted' ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#23845d]" /> : decision.status === 'rejected' ? <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#a1443f]" /> : <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#b36a19]" />}
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold text-[#25474e]">{decisionLabel(decision.status)}</p>
-                        <p className="mt-0.5 text-[11px] text-[#7f9297]">Recorded {new Date(decision.recordedAt).toLocaleString()} for the leading suggestion &ldquo;{topPrediction.label}&rdquo;.</p>
+                        <p className="mt-0.5 text-[11px] text-[#7f9297]">Recorded {new Date(decision.recordedAt).toLocaleString()}{indeterminate ? '.' : ` for the leading suggestion “${topPrediction.label}”.`}</p>
                         {decision.note && <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#4f6a70]">{decision.note}</p>}
                       </div>
                     </div>
@@ -361,9 +392,9 @@ export default function ResultPage() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-xs leading-5 text-[#6d8489]">Record how you are treating the leading suggestion. The decision is stored on this workstation and included in the exported report.</p>
+                    <p className="text-xs leading-5 text-[#6d8489]">{indeterminate ? 'Record your review of the indeterminate analysis.' : 'Record how you are treating the leading suggestion.'} The decision is stored on this workstation and included in the exported report.</p>
                     <div className="mt-4 grid gap-2">
-                      {decisionOptions.map(({ status: optionStatus, label, hint, icon: Icon }) => {
+                      {availableDecisions.map(({ status: optionStatus, label, hint, icon: Icon }) => {
                         const active = pendingStatus === optionStatus;
                         return (
                           <button
@@ -388,7 +419,7 @@ export default function ResultPage() {
                       disabled={!pendingStatus}
                       className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d766e] px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#075e58] disabled:cursor-not-allowed disabled:bg-[#a7b9b5]"
                     >
-                      <ClipboardCheck className="h-4 w-4" /> Record decision
+                                            <ClipboardCheck className="h-4 w-4" /> Record decision
                     </button>
                   </div>
                 )}
@@ -399,7 +430,7 @@ export default function ResultPage() {
               <SectionHeader icon={Stethoscope} title="Clinical next-step prompts" eyebrow="For clinician review" />
               <div className="p-5 sm:p-6">
                 <div className="space-y-3">
-                  {getReviewPrompts(result, topPrediction).map((prompt, index) => (
+                  {(indeterminate ? ['Review the original image and case context.'] : getReviewPrompts(result, topPrediction)).map((prompt, index) => (
                     <div key={index} className="flex items-start gap-3 rounded-xl border border-[#e0eae7] bg-[#fbfdfc] p-3.5">
                       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#e6f2ef] text-[10px] font-black text-[#0d766e]">{index + 1}</span>
                       <p className="text-xs leading-5 text-[#58737a]">{prompt}</p>
@@ -408,7 +439,7 @@ export default function ResultPage() {
                 </div>
               </div>
             </section>
-
+            
             <div className="rounded-2xl border border-[#d5e4e0] bg-[#edf5f2] p-4">
               <div className="flex items-start gap-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#0d766e]" />
@@ -493,3 +524,4 @@ function getReviewPrompts(result: Record<string, any>, topPrediction: Prediction
     'Record whether the model suggestion was accepted, rejected, or remained indeterminate.',
   ];
 }
+
