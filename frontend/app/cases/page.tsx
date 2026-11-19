@@ -44,7 +44,7 @@ export default function CasesPage() {
     clearCases();
     setCases([]);
   };
-
+  
   return (
     <ProtectedRoute>
       <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -85,7 +85,8 @@ export default function CasesPage() {
           <>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {cases.map((entry) => {
-                const normal = isNormalLabel(entry.topLabel);
+                const indeterminate = entry.result?.indeterminate === true;
+                const normal = !indeterminate && isNormalLabel(entry.topLabel);
                 const decided = entry.decision?.status;
                 return (
                   <article key={entry.id} className="clinical-card flex flex-col overflow-hidden">
@@ -98,16 +99,18 @@ export default function CasesPage() {
                         Case {shortCaseId(entry.id)}
                       </span>
                     </button>
-
+                    
                     <div className="flex flex-1 flex-col p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#8b9da1]">Leading suggestion</p>
-                          <p className={`mt-0.5 truncate text-base font-extrabold ${normal ? 'text-[#23845d]' : 'text-[#25474e]'}`}>{entry.topLabel}</p>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#8b9da1]">{indeterminate ? 'Analysis status' : 'Leading suggestion'}</p>
+                          <p className={`mt-0.5 truncate text-base font-extrabold ${normal ? 'text-[#23845d]' : 'text-[#25474e]'}`}>{indeterminate ? 'Indeterminate' : entry.topLabel}</p>
                         </div>
-                        <span className={`shrink-0 rounded-lg px-2 py-1 text-xs font-black ${normal ? 'bg-[#e9f6ef] text-[#23845d]' : 'bg-[#fff2df] text-[#aa6a18]'}`}>
-                          {Math.round(entry.topConfidence * 100)}%
-                        </span>
+                        {!indeterminate && entry.topConfidence !== null && (
+                          <span className={`shrink-0 rounded-lg px-2 py-1 text-xs font-black ${normal ? 'bg-[#e9f6ef] text-[#23845d]' : 'bg-[#fff2df] text-[#aa6a18]'}`}>
+                            {Math.round(entry.topConfidence * 100)}%
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[#7f9297]">

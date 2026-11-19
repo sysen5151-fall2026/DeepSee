@@ -37,8 +37,16 @@ def generate_clinical_explanation(
         f"so the image {'supports' if img.has_pneumonia else 'does not on its own support'} pneumonia."
     )
     present = tuple(_LABELS[k] for k, v in r.observed.items() if v)
+    if r.indeterminate:
+        summary = "Indeterminate analysis result. Review the image and clinical context."
+    else:
+        summary = (
+            f"{r.top_prediction.label} ranks first at {r.top_prediction.confidence:.2f} "
+            f"(severity {r.severity.lower()})."
+        )
+
     return ClinicalExplanation(
-        summary=f"{r.top_prediction.label} ranks first at {r.top_prediction.confidence:.2f} (severity {r.severity.lower()}).",
+        summary=summary,
         image_finding=image_finding,
         contributing_factors=present,
         caveat=(

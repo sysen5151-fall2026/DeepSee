@@ -95,7 +95,7 @@ paths:
                 type: object
                 properties:
                   analysisStatus: { $ref: "#/components/schemas/AnalysisStatus" }
-
+                  
   /internal/f3/refine-differential:
     post:
       tags: [F.3 internal flows]
@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AvailabilityDecision" }
-
+              
   /internal/f3/explain:
     post:
       tags: [F.3 internal flows]
@@ -188,7 +188,7 @@ components:
         hasHeadaches: { type: boolean, default: false }
         canSmellTaste: { type: boolean, default: true }
         examId: { type: string }
-
+        
     ConfirmedInputs:
       x-icom: IO.5
       type: object
@@ -224,7 +224,7 @@ components:
         timeoutSeconds: { type: number, default: 60 }
         minImageSidePx: { type: integer, default: 64 }
         scoreCap: { type: number, default: 0.95 }
-
+        
     ImageFindingScores:
       x-icom: IO.17
       type: object
@@ -261,14 +261,15 @@ components:
     ClinicalAnalysisResult:
       x-icom: IO.8
       type: object
-      required: [predictions, topPrediction, severity, imageModel]
+      required: [predictions, topPrediction, severity, imageModel, indeterminate]
       properties:
         predictions: { type: array, items: { $ref: "#/components/schemas/Prediction" }, minItems: 3, maxItems: 3 }
         topPrediction: { $ref: "#/components/schemas/Prediction" }
         severity: { type: string, enum: [High, Moderate, Low] }
         imageModel: { $ref: "#/components/schemas/ImageFindingScores" }
         observed: { type: object, additionalProperties: { type: boolean } }
-
+        indeterminate: { type: boolean }
+        
     ClinicalExplanation:
       x-icom: IO.9
       type: object
@@ -300,7 +301,7 @@ components:
 
     UploadScanResult:
       type: object
-      required: [predictions, topPrediction, severity, imageModel, explanation, modelVersion]
+      required: [predictions, topPrediction, severity, imageModel, explanation, modelVersion, indeterminate]
       properties:
         Covid-19: { type: number, deprecated: true }
         Pneumonia: { type: number, deprecated: true }
@@ -311,14 +312,19 @@ components:
             label: { type: string }
             confidence: { type: number }
             threshold: { type: number }
-        topPrediction: { $ref: "#/components/schemas/Prediction" }
+        topPrediction:
+          description: The leading prediction. Null when the result is indeterminate.
+          oneOf:
+            - $ref: "#/components/schemas/Prediction"
+            - type: "null"
+        indeterminate: { type: boolean }
         predictions: { type: array, items: { $ref: "#/components/schemas/Prediction" } }
         severity: { type: string, enum: [High, Moderate, Low] }
         explanation: { $ref: "#/components/schemas/ClinicalExplanation" }
         analysisStatus: { $ref: "#/components/schemas/AnalysisStatus/properties/steps" }
         modelVersion: { type: string }
         processedAt: { type: string, format: date-time }
-
+        
     UnavailableResponse:
       type: object
       required: [error, analysisUnavailable]
