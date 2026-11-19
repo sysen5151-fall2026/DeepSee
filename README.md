@@ -162,16 +162,31 @@ Requires Python 3.10 to 3.12.
 cd backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r core/requirements.txt
-cd core && python manage.py migrate && python manage.py runserver
+cd core && python manage.py migrate && python manage.py runserver 127.0.0.1:8000
 ```
 
 Then, in `frontend/.env.local`:
 
 ```
+NEXT_PUBLIC_DEPLOYMENT_PROFILE=workstation-local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
+Run the workspace and inference service on the same workstation. The profile accepts
+only a loopback API origin and rejects HTTP redirects. Leave both variables unset
+for the separate browser-only demo. Rebuild the frontend after changing these values.
+
 Register a clinician account from the workspace and start a review. Details: [backend/README.md](backend/README.md).
+
+On a disposable local test database, run these checks from `frontend/`:
+
+```bash
+node --test tests/deployment-config.test.cjs
+node e2e/workstation-api.cjs
+```
+
+The second check creates a synthetic account and sends repository fixture images to
+the running loopback service. It measures API round trips, not browser display time.
 
 ## Architecture
 

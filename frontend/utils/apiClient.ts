@@ -4,7 +4,7 @@ import {
   formatErrorForLogging
 } from './errorHandling';
 
-import { isDemoMode, getApiBaseUrl } from '@/lib/config';
+import { isDemoMode, getApiBaseUrl, isWorkstationLocal } from '@/lib/config';
 
 export interface ApiRequestConfig {
   endpoint: string;
@@ -123,7 +123,9 @@ export async function apiRequest<T>(config: ApiRequestConfig): Promise<ApiRespon
       const requestOptions: RequestInit = {
         method,
         headers: effectiveHeaders,
-        signal: effectiveSignal
+        signal: effectiveSignal,
+        // Keep the configured workstation API request on the loopback origin.
+        ...(isWorkstationLocal() ? { redirect: 'error' as const } : {}),
       };
 
       // Add body if needed
