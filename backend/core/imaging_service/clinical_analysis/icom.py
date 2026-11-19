@@ -91,6 +91,7 @@ class ClinicalAnalysisResult:
     severity: str
     image_model: ImageFindingScores
     observed: dict
+    indeterminate: bool = False
 
 
 @dataclass(frozen=True)
