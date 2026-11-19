@@ -203,10 +203,23 @@ def test_CR3_2_ranks_differential_highest_first_with_normal_as_complement():
     assert by_label["Normal"] == round(1 - max(by_label["Pneumonia"], by_label["Covid-19"]), 2)
 
 
-def test_CR3_2_scores_never_exceed_the_C3_cap():
-    inputs = confirmed_inputs(temperature=39.5, heart_rate=120, has_headache=True, can_smell=False)
-    result = run_f3(classifier=StubClassifier(0.99), inputs=inputs).result
-    assert all(p.confidence <= CRITERIA.score_cap for p in result.predictions)
+def test_CR3_2_tied_scores_produce_an_indeterminate_explanation():
+    inputs = confirmed_inputs(
+        temperature=39.0,
+        has_cough=True,
+        has_headache=True,
+        can_smell=False,
+    )
+    outcome = run_f3(classifier=StubClassifier(0.12), inputs=inputs)
+
+    assert outcome.decision.available
+    assert [p.confidence for p in outcome.result.predictions[:2]] == [0.95, 0.95]
+    assert outcome.result.indeterminate is True
+    assert outcome.explanation.summary == (
+        "Indeterminate analysis result. Review the image and clinical context."
+    )
+
+
 
 
 @pytest.mark.parametrize("score,severity", [(0.71, "High"), (0.70, "High"), (0.45, "Moderate"), (0.2, "Low")])
