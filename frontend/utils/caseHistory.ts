@@ -21,7 +21,7 @@ export interface StoredCase {
   id: string;
   createdAt: string;
   topLabel: string;
-  topConfidence: number;
+  topConfidence: number | null;
   predictions: Prediction[];
   vitals: PatientVitals | null;
   /** Downscaled JPEG data URL of the submitted image. */
