@@ -158,3 +158,4 @@ export default function CasesPage() {
       </div>
     </ProtectedRoute>
   );
+}
