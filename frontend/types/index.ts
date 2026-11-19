@@ -90,7 +90,8 @@ export interface HeatmapRegion {
 }
 
 export interface AnalysisResult {
-  topPrediction: Prediction;
+  topPrediction: Prediction | null;
+  indeterminate?: boolean;
   predictions: Prediction[];
   heatmapUrl: string;
   regions?: HeatmapRegion[];
@@ -175,4 +176,3 @@ export interface PredictionResponse {
   }[];
   heatmap?: string; // base64 encoded image
 }
-
