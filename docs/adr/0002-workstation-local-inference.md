@@ -1,6 +1,6 @@
 # ADR 0002 — Workstation-local inference
 
-**Status:** Proposed / Pending team review
+**Status:** Accepted
 
 ## Decision and context
 
